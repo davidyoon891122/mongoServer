@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -72,13 +71,13 @@ func main() {
 			panic(err)
 		}
 
-		fmt.Println(recvMap)
-
 		if recvMap["service"] == "TR100020" {
 			Tr100020Req = recvMap
 
 			Service = recvMap["service"].(string)
 			resultArray := AccountSearch()
+
+			fmt.Printf("result Array : %v \n", resultArray)
 
 			SetReply(resultArray)
 
@@ -127,8 +126,6 @@ func AccountSearch() []bson.M {
 
 	collection := mongoClient.Database(dbName).Collection(collectionName)
 
-	fmt.Println("Collection type : ", reflect.TypeOf(collection))
-
 	cursor, err := collection.Find(context.TODO(), filter)
 
 	if err != nil {
@@ -147,7 +144,6 @@ func AccountSearch() []bson.M {
 		if err != nil {
 			panic(err)
 		} else {
-			fmt.Println("result: ", result)
 			resultArray = append(resultArray, result)
 		}
 	}
@@ -178,13 +174,26 @@ func ConnectMongo() *mongo.Client {
 func SetReply(result interface{}) {
 	if Service == "TR100020" {
 		if len(result.([]bson.M)) != 0 {
+			//have to make
 			Tr100020Rep["ret-cd"] = 1
 			Tr100020Rep["ret-msg"] = "Search success"
-			Tr100020Rep["tr100020"] = map[string]interface{}{
-				"group-name": "",
-				"count":      len(result.([]bson.M)[0]["stklist"].(bson.A)),
-				"accounts":   result.([]bson.M)[0]["stklist"],
+			// Tr100020Rep["tr100020"] = map[string]interface{}{
+			// 	"group-name": "",
+			// 	"count":      len(result.([]bson.M)[0]["stklist"].(bson.A)),
+			// 	"accounts":   result.([]bson.M)[0]["stklist"],
+			// }
+			var tr100020Array []map[string]interface{}
+			for k, v := range result.([]bson.M) {
+				fmt.Println("Key : ", k)
+				fmt.Println("Value : ", v)
+				var tr100020 map[string]interface{} = map[string]interface{}{
+					"group-name": result.([]bson.M)[k]["grpnm"],
+					"count":      len(result.([]bson.M)[k]["stklist"].(bson.A)),
+					"accounts":   result.([]bson.M)[k]["stklist"],
+				}
+				tr100020Array = append(tr100020Array, tr100020)
 			}
+			Tr100020Rep["tr100020"] = tr100020Array
 			fmt.Println("set Tr100020Rep : ", Tr100020Rep)
 		} else if len(result.([]bson.M)) == 0 {
 			Tr100020Rep["ret-cd"] = -1
@@ -245,7 +254,7 @@ func DeleteData() *mongo.DeleteResult {
 		"grpnm": Tr100021Req["grpnm"],
 	}
 
-	result, err := collection.DeleteOne(context.TODO(), keys)
+	result, err := collection.DeleteMany(context.TODO(), keys)
 
 	if err != nil {
 		panic(err)
