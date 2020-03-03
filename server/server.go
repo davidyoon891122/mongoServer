@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -91,13 +92,23 @@ func main() {
 		} else if recvMap["service"] == "TR100021" {
 			Tr100021Req = recvMap
 			Service = recvMap["service"].(string)
+			var result interface{}
 			if recvMap["proctp"] == "I" {
-				resultArray := InsertData()
-				fmt.Println(resultArray)
+				result = InsertData()
+				fmt.Println("Insert Result : ", result)
 			} else if recvMap["proctp"] == "D" {
-
-				//resultArray := DeleteData()
+				result = DeleteData()
+				fmt.Println("Delete Result : ", result)
 			}
+			SetReply(result)
+
+			packed, err := msgpack.Encode(Tr100021Rep)
+
+			if err != nil {
+				panic(err)
+			}
+
+			router.SendMessage(recv[0], packed)
 		}
 
 	}
@@ -115,6 +126,8 @@ func AccountSearch() []bson.M {
 	}
 
 	collection := mongoClient.Database(dbName).Collection(collectionName)
+
+	fmt.Println("Collection type : ", reflect.TypeOf(collection))
 
 	cursor, err := collection.Find(context.TODO(), filter)
 
@@ -161,18 +174,19 @@ func ConnectMongo() *mongo.Client {
 	return client
 }
 
-func SetReply(result []bson.M) {
+//convert []bson.M to interface{}
+func SetReply(result interface{}) {
 	if Service == "TR100020" {
-		if len(result) != 0 {
+		if len(result.([]bson.M)) != 0 {
 			Tr100020Rep["ret-cd"] = 1
 			Tr100020Rep["ret-msg"] = "Search success"
 			Tr100020Rep["tr100020"] = map[string]interface{}{
 				"group-name": "",
-				"count":      len(result[0]["stklist"].(bson.A)),
-				"accounts":   result[0]["stklist"],
+				"count":      len(result.([]bson.M)[0]["stklist"].(bson.A)),
+				"accounts":   result.([]bson.M)[0]["stklist"],
 			}
 			fmt.Println("set Tr100020Rep : ", Tr100020Rep)
-		} else if len(result) == 0 {
+		} else if len(result.([]bson.M)) == 0 {
 			Tr100020Rep["ret-cd"] = -1
 			Tr100020Rep["ret-msg"] = "Not matched data"
 			Tr100020Rep["tr100020"] = nil
@@ -180,7 +194,18 @@ func SetReply(result []bson.M) {
 			fmt.Println("set Tr100020Rep : ", Tr100020Rep)
 		} // be made case multiple results from DB.
 	} else if Service == "TR100021" {
-		//
+		switch result.(type) {
+		case *mongo.InsertOneResult:
+			if result.(*mongo.InsertOneResult) != nil {
+				Tr100021Rep["ret-cd"] = 1
+				Tr100021Rep["ret-msg"] = fmt.Sprintf("result : %v", result.(*mongo.InsertOneResult))
+			}
+		case *mongo.DeleteResult:
+			if result.(*mongo.DeleteResult) != nil {
+				Tr100021Rep["ret-cd"] = 1
+				Tr100021Rep["ret-msg"] = fmt.Sprintf("result : %v", result.(*mongo.DeleteResult))
+			}
+		}
 	}
 }
 
@@ -204,9 +229,29 @@ func InsertData() *mongo.InsertOneResult {
 		panic(err)
 	}
 
+	defer mongoClient.Disconnect(context.TODO())
 	return result
 }
 
-// func DeleteData() []bson.M {
-// 	//
-// }
+func DeleteData() *mongo.DeleteResult {
+	mongoClient := ConnectMongo()
+	dbName := "tempDB"
+	collectionName := "account"
+
+	collection := mongoClient.Database(dbName).Collection(collectionName)
+
+	keys := bson.M{
+		"htsid": Tr100021Req["htsid"],
+		"grpnm": Tr100021Req["grpnm"],
+	}
+
+	result, err := collection.DeleteOne(context.TODO(), keys)
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer mongoClient.Disconnect(context.TODO())
+	return result
+
+}

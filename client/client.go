@@ -184,4 +184,20 @@ func InsertDeleteData() {
 
 	fmt.Println("sent n :", n)
 
+	var recvMap map[string]interface{}
+
+	recv, err := dealer.RecvMessageBytes(0)
+
+	if err != nil {
+		panic(err)
+	}
+
+	err = msgpack.Decode(recv[0], &recvMap)
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(recvMap)
+
 }
