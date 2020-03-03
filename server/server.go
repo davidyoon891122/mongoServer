@@ -34,7 +34,8 @@ var Tr100021Req map[string]interface{} = map[string]interface{}{
 	"from":    "",
 	"service": "TR100021",
 	"stkcnt":  0,
-	"proctp":  "",
+	"proctp":  "", //Insert(I), Delete(D)
+	"htsid":   "",
 	"grpnm":   "",
 	"stklist": [100]string{},
 }
@@ -72,10 +73,10 @@ func main() {
 
 		fmt.Println(recvMap)
 
-		Tr100020Req = recvMap
-
-		Service = recvMap["service"].(string)
 		if recvMap["service"] == "TR100020" {
+			Tr100020Req = recvMap
+
+			Service = recvMap["service"].(string)
 			resultArray := AccountSearch()
 
 			SetReply(resultArray)
@@ -87,7 +88,16 @@ func main() {
 			}
 
 			router.SendMessage(recv[0], packed)
+		} else if recvMap["service"] == "TR100021" {
+			Tr100021Req = recvMap
+			Service = recvMap["service"].(string)
+			if recvMap["proctp"] == "I" {
+				resultArray := InsertData()
+				fmt.Println(resultArray)
+			} else if recvMap["proctp"] == "D" {
 
+				//resultArray := DeleteData()
+			}
 		}
 
 	}
@@ -173,3 +183,30 @@ func SetReply(result []bson.M) {
 		//
 	}
 }
+
+func InsertData() *mongo.InsertOneResult {
+	mongoClient := ConnectMongo()
+	dbName := "tempDB"
+	collectionName := "account"
+
+	collection := mongoClient.Database(dbName).Collection(collectionName)
+
+	data := bson.M{
+		"htsid":   Tr100021Req["htsid"],
+		"nextkey": "",
+		"grpnm":   Tr100021Req["grpnm"],
+		"stklist": Tr100021Req["stklist"],
+	}
+
+	result, err := collection.InsertOne(context.TODO(), data)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return result
+}
+
+// func DeleteData() []bson.M {
+// 	//
+// }
