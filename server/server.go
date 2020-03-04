@@ -72,6 +72,7 @@ func main() {
 	router.Bind("tcp://*:5557")
 
 	logger.Println("Account Test is starting...")
+	fmt.Println("Account Test is starting...")
 
 	for {
 		recv, err := router.RecvMessageBytes(0)
@@ -87,6 +88,11 @@ func main() {
 			logger.Panic(err)
 		}
 		logger.Printf("Received message from %v : %v", recv[0], recvMap)
+		//fmt.Printf("Received message from %v : %v \n", recv[0], recvMap)
+
+		//display message
+		fmt.Println("Request Service : ", recvMap["service"])
+
 		if recvMap["service"] == "TR100020" {
 			Tr100020Req = recvMap
 
@@ -104,6 +110,8 @@ func main() {
 			}
 
 			router.SendMessage(recv[0], packed)
+
+			fmt.Println("Reply Done")
 		} else if recvMap["service"] == "TR100021" {
 			Tr100021Req = recvMap
 			Service = recvMap["service"].(string)
@@ -124,6 +132,7 @@ func main() {
 			}
 
 			router.SendMessage(recv[0], packed)
+			fmt.Println("Reply Done")
 		}
 
 	}
@@ -136,7 +145,7 @@ func AccountSearch() []bson.M {
 	collectionName := "account"
 
 	filter := bson.M{
-		"htsid":   Tr100020Req["htsid"],
+		"htsid":   Tr100020Req["htsid"], //have to modi
 		"nextkey": Tr100020Req["nextkey"],
 	}
 
@@ -181,7 +190,7 @@ func ConnectMongo() *mongo.Client {
 
 	err = client.Ping(context.TODO(), nil)
 
-	logger.Println("Connected to MongoDB!")
+	// logger.Println("Connected to MongoDB!")
 
 	return client
 }

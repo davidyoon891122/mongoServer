@@ -88,22 +88,25 @@ func DisplayMenu() {
 			InsertDeleteData()
 		}
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(3 * time.Second)
 	}
 }
 
 func SearchData() {
 	var from string = "david"
 	var htsid string
+	var grpnm string
 
 	fmt.Println("Account Search Process")
 	fmt.Println("htsid : ")
 	fmt.Scanf("%s", &htsid)
+	fmt.Println("grpnm : ")
+	fmt.Scanf("%s", &grpnm)
 
 	Tr100020Req["from"] = from
 	Tr100020Req["htsid"] = htsid
 	Tr100020Req["nextkey"] = ""
-	fmt.Println("Tr10002Req :", Tr100020Req)
+	fmt.Println("Service Request : ", Tr100020Req["service"])
 	logger.Println("Tr10002Req :", Tr100020Req)
 
 	packed, err := msgpack.Encode(Tr100020Req)
@@ -127,8 +130,26 @@ func SearchData() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("recvMap : ", recvMap)
 	logger.Println("recvMap : ", recvMap)
+	//display result
+	fmt.Println("*******************************************************************************")
+	fmt.Println("ret-cd : ", recvMap["ret-cd"])
+	fmt.Println("ret-msg : ", recvMap["ret-msg"])
+	// fmt.Println("tr100020 : ", recvMap["tr100020"])
+	mapArray := recvMap["tr100020"]
+
+	switch mapArray.(type) {
+	case []interface{}:
+		for k, _ := range mapArray.([]interface{}) {
+			fmt.Printf("%d. group-name : %v \n", k+1, mapArray.([]interface{})[k].(map[interface{}]interface{})["group-name"])
+			fmt.Printf("    count : %v \n", mapArray.([]interface{})[k].(map[interface{}]interface{})["count"])
+			fmt.Printf("    accounts : %v \n", mapArray.([]interface{})[k].(map[interface{}]interface{})["accounts"])
+		}
+		fmt.Println("*******************************************************************************")
+	case nil:
+		fmt.Printf("tr100020 : nil\n")
+		fmt.Println("*******************************************************************************")
+	}
 }
 
 func InsertDeleteData() {
@@ -160,6 +181,8 @@ func InsertDeleteData() {
 	Tr100021Req["from"] = from
 	Tr100021Req["htsid"] = htsid
 	Tr100021Req["grpnm"] = grpnm
+
+	fmt.Println("Service Request : ", Tr100021Req["service"])
 
 	if Tr100021Req["proctp"] == "I" {
 		fmt.Println("Set Account List to add DB")
@@ -226,5 +249,11 @@ func InsertDeleteData() {
 
 	fmt.Println(recvMap)
 	logger.Println(recvMap)
+
+	//display result
+	fmt.Println("*******************************************************************************")
+	fmt.Println("ret-cd : ", recvMap["ret-cd"])
+	fmt.Println("ret-msg : ", recvMap["ret-msg"])
+	fmt.Println("*******************************************************************************")
 
 }
