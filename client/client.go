@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/shamaton/msgpack"
 
@@ -69,6 +71,8 @@ func DisplayMenu() {
 		} else if selector == 2 {
 			InsertDeleteData()
 		}
+
+		time.Sleep(5 * time.Second)
 	}
 }
 
@@ -147,16 +151,26 @@ func InsertDeleteData() {
 		fmt.Println("Set Account List to add DB")
 		var stklist []string
 		for {
-			fmt.Println("Account Number : ")
+			fmt.Println("Account Number(000C00000000) : ")
+
 			var account string
+
+			r := regexp.MustCompile("(([0-9]{3})+C+([0-9]{8}))")
 			fmt.Scanf("%s", &account)
-			if strings.ToUpper(account) == "EXIT" {
+			account = strings.ToUpper(account)
+
+			if account == "EXIT" {
 				break
 			} else if len(stklist) == 99 {
 				fmt.Println("The List reach full size")
 				break
+			} else if r.MatchString(account) == false {
+				fmt.Println("Not matched account format")
+				continue
 			}
 			stklist = append(stklist, account)
+			fmt.Println("account is saved.")
+
 		}
 
 		fmt.Println("list size : ", len(stklist))
