@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -43,8 +45,22 @@ var Tr100021Rep map[string]interface{} = map[string]interface{}{
 }
 
 var dealer *zmq.Socket
+var logger *log.Logger
+var programName string = "client"
+
+func SetLogger() {
+	currentDirectory, _ := os.Getwd()
+	logPath := "/logs/" + programName + ".log"
+	f, err := os.OpenFile(currentDirectory+logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
+	if err != nil {
+		panic(err)
+	}
+
+	logger = log.New(f, "INFO : ", log.Ldate|log.Ltime|log.Lshortfile)
+}
 
 func main() {
+	SetLogger()
 	context, _ := zmq.NewContext()
 	dealer, _ = context.NewSocket(zmq.DEALER)
 
@@ -87,8 +103,8 @@ func SearchData() {
 	Tr100020Req["from"] = from
 	Tr100020Req["htsid"] = htsid
 	Tr100020Req["nextkey"] = ""
-
-	fmt.Println(Tr100020Req)
+	fmt.Println("Tr10002Req :", Tr100020Req)
+	logger.Println("Tr10002Req :", Tr100020Req)
 
 	packed, err := msgpack.Encode(Tr100020Req)
 
@@ -96,13 +112,11 @@ func SearchData() {
 		panic(err)
 	}
 
-	n, err := dealer.SendMessage(packed)
+	_, err = dealer.SendMessage(packed)
 
 	if err != nil {
 		panic(err)
 	}
-
-	fmt.Println("sent n : ", n)
 
 	recv, err := dealer.RecvMessageBytes(0)
 
@@ -113,8 +127,8 @@ func SearchData() {
 	if err != nil {
 		panic(err)
 	}
-
 	fmt.Println("recvMap : ", recvMap)
+	logger.Println("recvMap : ", recvMap)
 }
 
 func InsertDeleteData() {
@@ -181,37 +195,36 @@ func InsertDeleteData() {
 		Tr100021Req["stklist"] = nil
 		Tr100021Req["stkcnt"] = 0
 	}
-
 	fmt.Println("Tr100021Req : ", Tr100021Req)
+	logger.Println("Tr100021Req : ", Tr100021Req)
 
 	packed, err := msgpack.Encode(Tr100021Req)
 
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
 	}
 
-	n, err := dealer.SendMessage(packed)
+	_, err = dealer.SendMessage(packed)
 
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
 	}
-
-	fmt.Println("sent n :", n)
 
 	var recvMap map[string]interface{}
 
 	recv, err := dealer.RecvMessageBytes(0)
 
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
 	}
 
 	err = msgpack.Decode(recv[0], &recvMap)
 
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
 	}
 
 	fmt.Println(recvMap)
+	logger.Println(recvMap)
 
 }

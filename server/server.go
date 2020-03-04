@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -46,8 +48,22 @@ var Tr100021Rep map[string]interface{} = map[string]interface{}{
 }
 
 var Service string
+var logger *log.Logger
+var programName string = "server"
+
+func SetLogger() {
+	currentDirectory, _ := os.Getwd()
+	logPath := "/logs/" + programName + ".log"
+	f, err := os.OpenFile(currentDirectory+logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
+	if err != nil {
+		panic(err)
+	}
+
+	logger = log.New(f, "INFO : ", log.Ldate|log.Ltime|log.Lshortfile)
+}
 
 func main() {
+	SetLogger()
 	context, _ := zmq.NewContext()
 	router, _ := context.NewSocket(zmq.ROUTER)
 
@@ -55,36 +71,36 @@ func main() {
 
 	router.Bind("tcp://*:5557")
 
-	fmt.Println("Account Test is starting...")
+	logger.Println("Account Test is starting...")
 
 	for {
 		recv, err := router.RecvMessageBytes(0)
 
 		if err != nil {
-			panic(err)
+			logger.Panic(err)
 		}
 
 		var recvMap map[string]interface{}
 
 		err = msgpack.Decode(recv[1], &recvMap)
 		if err != nil {
-			panic(err)
+			logger.Panic(err)
 		}
-
+		logger.Printf("Received message from %v : %v", recv[0], recvMap)
 		if recvMap["service"] == "TR100020" {
 			Tr100020Req = recvMap
 
 			Service = recvMap["service"].(string)
 			resultArray := AccountSearch()
 
-			fmt.Printf("result Array : %v \n", resultArray)
+			logger.Printf("result Array : %v \n", resultArray)
 
 			SetReply(resultArray)
 
 			packed, err := msgpack.Encode(Tr100020Rep)
 
 			if err != nil {
-				panic(err)
+				logger.Panic(err)
 			}
 
 			router.SendMessage(recv[0], packed)
@@ -94,17 +110,17 @@ func main() {
 			var result interface{}
 			if recvMap["proctp"] == "I" {
 				result = InsertData()
-				fmt.Println("Insert Result : ", result)
+				logger.Println("Insert Result : ", result)
 			} else if recvMap["proctp"] == "D" {
 				result = DeleteData()
-				fmt.Println("Delete Result : ", result)
+				logger.Println("Delete Result : ", result)
 			}
 			SetReply(result)
 
 			packed, err := msgpack.Encode(Tr100021Rep)
 
 			if err != nil {
-				panic(err)
+				logger.Panic(err)
 			}
 
 			router.SendMessage(recv[0], packed)
@@ -129,7 +145,7 @@ func AccountSearch() []bson.M {
 	cursor, err := collection.Find(context.TODO(), filter)
 
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
 	}
 
 	ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
@@ -142,7 +158,7 @@ func AccountSearch() []bson.M {
 		err := cursor.Decode(&result)
 
 		if err != nil {
-			panic(err)
+			logger.Panic(err)
 		} else {
 			resultArray = append(resultArray, result)
 		}
@@ -160,32 +176,24 @@ func ConnectMongo() *mongo.Client {
 	client, err := mongo.Connect(context.TODO(), clientOption)
 
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
 	}
 
 	err = client.Ping(context.TODO(), nil)
 
-	fmt.Println("Connected to MongoDB!")
+	logger.Println("Connected to MongoDB!")
 
 	return client
 }
 
-//convert []bson.M to interface{}
 func SetReply(result interface{}) {
 	if Service == "TR100020" {
 		if len(result.([]bson.M)) != 0 {
-			//have to make
 			Tr100020Rep["ret-cd"] = 1
 			Tr100020Rep["ret-msg"] = "Search success"
-			// Tr100020Rep["tr100020"] = map[string]interface{}{
-			// 	"group-name": "",
-			// 	"count":      len(result.([]bson.M)[0]["stklist"].(bson.A)),
-			// 	"accounts":   result.([]bson.M)[0]["stklist"],
-			// }
+
 			var tr100020Array []map[string]interface{}
-			for k, v := range result.([]bson.M) {
-				fmt.Println("Key : ", k)
-				fmt.Println("Value : ", v)
+			for k, _ := range result.([]bson.M) {
 				var tr100020 map[string]interface{} = map[string]interface{}{
 					"group-name": result.([]bson.M)[k]["grpnm"],
 					"count":      len(result.([]bson.M)[k]["stklist"].(bson.A)),
@@ -194,14 +202,14 @@ func SetReply(result interface{}) {
 				tr100020Array = append(tr100020Array, tr100020)
 			}
 			Tr100020Rep["tr100020"] = tr100020Array
-			fmt.Println("set Tr100020Rep : ", Tr100020Rep)
+			logger.Println("set Tr100020Rep : ", Tr100020Rep)
 		} else if len(result.([]bson.M)) == 0 {
 			Tr100020Rep["ret-cd"] = -1
 			Tr100020Rep["ret-msg"] = "Not matched data"
 			Tr100020Rep["tr100020"] = nil
 
-			fmt.Println("set Tr100020Rep : ", Tr100020Rep)
-		} // be made case multiple results from DB.
+			logger.Println("set Tr100020Rep : ", Tr100020Rep)
+		}
 	} else if Service == "TR100021" {
 		switch result.(type) {
 		case *mongo.InsertOneResult:
@@ -235,7 +243,7 @@ func InsertData() *mongo.InsertOneResult {
 	result, err := collection.InsertOne(context.TODO(), data)
 
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
 	}
 
 	defer mongoClient.Disconnect(context.TODO())
@@ -257,7 +265,7 @@ func DeleteData() *mongo.DeleteResult {
 	result, err := collection.DeleteMany(context.TODO(), keys)
 
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
 	}
 
 	defer mongoClient.Disconnect(context.TODO())
