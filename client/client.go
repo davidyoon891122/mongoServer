@@ -13,11 +13,13 @@ import (
 	zmq "github.com/pebbe/zmq4"
 )
 
+//add grpnm for searching
 var Tr100020Req map[string]interface{} = map[string]interface{}{
 	"from":    "",
 	"service": "TR100020",
 	"htsid":   "",
 	"nextkey": "",
+	"grpnm":   "",
 }
 
 var Tr100020Rep map[string]interface{} = map[string]interface{}{
@@ -106,6 +108,7 @@ func SearchData() {
 	Tr100020Req["from"] = from
 	Tr100020Req["htsid"] = htsid
 	Tr100020Req["nextkey"] = ""
+	Tr100020Req["grpnm"] = grpnm
 	fmt.Println("Service Request : ", Tr100020Req["service"])
 	logger.Println("Tr10002Req :", Tr100020Req)
 

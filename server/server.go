@@ -88,11 +88,17 @@ func main() {
 			logger.Panic(err)
 		}
 		logger.Printf("Received message from %v : %v", recv[0], recvMap)
-		//fmt.Printf("Received message from %v : %v \n", recv[0], recvMap)
 
 		//display message
 		fmt.Println("Request Service : ", recvMap["service"])
 
+		// conditional statements 
+		/*
+		1. set handlers map by service ( don't know how to return functions in map)
+		2. 
+
+
+		*/
 		if recvMap["service"] == "TR100020" {
 			Tr100020Req = recvMap
 
@@ -147,6 +153,7 @@ func AccountSearch() []bson.M {
 	filter := bson.M{
 		"htsid":   Tr100020Req["htsid"], //have to modi
 		"nextkey": Tr100020Req["nextkey"],
+		"grpnm": Tr100020Req["grpnm"],
 	}
 
 	collection := mongoClient.Database(dbName).Collection(collectionName)
