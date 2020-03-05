@@ -47,6 +47,11 @@ var Tr100021Rep map[string]interface{} = map[string]interface{}{
 	"ret-msg": "",
 }
 
+var handler map[string]interface{} = map[string]interface{}{
+	"TR100020": AccountSearch,
+	"TR100021": InsertAndDelete,
+}
+
 var Service string
 var logger *log.Logger
 var programName string = "server"
@@ -92,68 +97,33 @@ func main() {
 		//display message
 		fmt.Println("Request Service : ", recvMap["service"])
 
-		// conditional statements 
-		/*
-		1. set handlers map by service ( don't know how to return functions in map)
-		2. 
+		Service = recvMap["service"].(string)
+		result := handler[Service].(func(map[string]interface{}) interface{})(recvMap)
+		fmt.Println(result)
+		message := SetReply(result)
 
+		packed, err := msgpack.Encode(message)
 
-		*/
-		if recvMap["service"] == "TR100020" {
-			Tr100020Req = recvMap
-
-			Service = recvMap["service"].(string)
-			resultArray := AccountSearch()
-
-			logger.Printf("result Array : %v \n", resultArray)
-
-			SetReply(resultArray)
-
-			packed, err := msgpack.Encode(Tr100020Rep)
-
-			if err != nil {
-				logger.Panic(err)
-			}
-
-			router.SendMessage(recv[0], packed)
-
-			fmt.Println("Reply Done")
-		} else if recvMap["service"] == "TR100021" {
-			Tr100021Req = recvMap
-			Service = recvMap["service"].(string)
-			var result interface{}
-			if recvMap["proctp"] == "I" {
-				result = InsertData()
-				logger.Println("Insert Result : ", result)
-			} else if recvMap["proctp"] == "D" {
-				result = DeleteData()
-				logger.Println("Delete Result : ", result)
-			}
-			SetReply(result)
-
-			packed, err := msgpack.Encode(Tr100021Rep)
-
-			if err != nil {
-				logger.Panic(err)
-			}
-
-			router.SendMessage(recv[0], packed)
-			fmt.Println("Reply Done")
+		if err != nil {
+			logger.Panic(err)
 		}
 
+		router.SendMessage(recv[0], packed)
+
+		fmt.Println("Reply Done")
 	}
 }
 
-func AccountSearch() []bson.M {
+func AccountSearch(recvMap map[string]interface{}) interface{} {
 	mongoClient := ConnectMongo()
 
 	dbName := "tempDB"
 	collectionName := "account"
 
 	filter := bson.M{
-		"htsid":   Tr100020Req["htsid"], //have to modi
-		"nextkey": Tr100020Req["nextkey"],
-		"grpnm": Tr100020Req["grpnm"],
+		"htsid":   recvMap["htsid"], //have to modi
+		"nextkey": recvMap["nextkey"],
+		"grpnm":   recvMap["grpnm"],
 	}
 
 	collection := mongoClient.Database(dbName).Collection(collectionName)
@@ -202,7 +172,8 @@ func ConnectMongo() *mongo.Client {
 	return client
 }
 
-func SetReply(result interface{}) {
+func SetReply(result interface{}) map[string]interface{} {
+	//have to redesign
 	if Service == "TR100020" {
 		if len(result.([]bson.M)) != 0 {
 			Tr100020Rep["ret-cd"] = 1
@@ -219,12 +190,14 @@ func SetReply(result interface{}) {
 			}
 			Tr100020Rep["tr100020"] = tr100020Array
 			logger.Println("set Tr100020Rep : ", Tr100020Rep)
+			return Tr100020Rep
 		} else if len(result.([]bson.M)) == 0 {
 			Tr100020Rep["ret-cd"] = -1
 			Tr100020Rep["ret-msg"] = "Not matched data"
 			Tr100020Rep["tr100020"] = nil
 
 			logger.Println("set Tr100020Rep : ", Tr100020Rep)
+			return Tr100020Rep
 		}
 	} else if Service == "TR100021" {
 		switch result.(type) {
@@ -232,17 +205,33 @@ func SetReply(result interface{}) {
 			if result.(*mongo.InsertOneResult) != nil {
 				Tr100021Rep["ret-cd"] = 1
 				Tr100021Rep["ret-msg"] = fmt.Sprintf("result : %v", result.(*mongo.InsertOneResult))
+				return Tr100021Rep
 			}
 		case *mongo.DeleteResult:
 			if result.(*mongo.DeleteResult) != nil {
 				Tr100021Rep["ret-cd"] = 1
 				Tr100021Rep["ret-msg"] = fmt.Sprintf("result : %v", result.(*mongo.DeleteResult))
+				return Tr100021Rep
 			}
 		}
 	}
+	return nil
 }
 
-func InsertData() *mongo.InsertOneResult {
+func InsertAndDelete(recvMap map[string]interface{}) interface{} {
+	var result interface{}
+	if recvMap["proctp"] == "I" {
+		result = InsertData(recvMap)
+		logger.Println("Insert Result : ", result)
+	} else if recvMap["proctp"] == "D" {
+		result = DeleteData(recvMap)
+		logger.Println("Delete Result : ", result)
+	}
+
+	return result
+}
+
+func InsertData(recvMap map[string]interface{}) *mongo.InsertOneResult {
 	mongoClient := ConnectMongo()
 	dbName := "tempDB"
 	collectionName := "account"
@@ -250,10 +239,10 @@ func InsertData() *mongo.InsertOneResult {
 	collection := mongoClient.Database(dbName).Collection(collectionName)
 
 	data := bson.M{
-		"htsid":   Tr100021Req["htsid"],
+		"htsid":   recvMap["htsid"],
 		"nextkey": "",
-		"grpnm":   Tr100021Req["grpnm"],
-		"stklist": Tr100021Req["stklist"],
+		"grpnm":   recvMap["grpnm"],
+		"stklist": recvMap["stklist"],
 	}
 
 	result, err := collection.InsertOne(context.TODO(), data)
@@ -266,7 +255,7 @@ func InsertData() *mongo.InsertOneResult {
 	return result
 }
 
-func DeleteData() *mongo.DeleteResult {
+func DeleteData(recvMap map[string]interface{}) *mongo.DeleteResult {
 	mongoClient := ConnectMongo()
 	dbName := "tempDB"
 	collectionName := "account"
@@ -274,8 +263,8 @@ func DeleteData() *mongo.DeleteResult {
 	collection := mongoClient.Database(dbName).Collection(collectionName)
 
 	keys := bson.M{
-		"htsid": Tr100021Req["htsid"],
-		"grpnm": Tr100021Req["grpnm"],
+		"htsid": recvMap["htsid"],
+		"grpnm": recvMap["grpnm"],
 	}
 
 	result, err := collection.DeleteMany(context.TODO(), keys)
