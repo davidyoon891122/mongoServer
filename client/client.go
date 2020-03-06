@@ -22,16 +22,6 @@ var Tr100020Req map[string]interface{} = map[string]interface{}{
 	"grpnm":   "",
 }
 
-var Tr100020Rep map[string]interface{} = map[string]interface{}{
-	"ret-cd":  0,
-	"ret-msg": "",
-	"tr100020": map[string]interface{}{
-		"group-name": "",
-		"count":      0,
-		"accounts":   [100]string{},
-	},
-}
-
 var Tr100021Req map[string]interface{} = map[string]interface{}{
 	"from":    "",
 	"service": "TR100021",
@@ -39,11 +29,6 @@ var Tr100021Req map[string]interface{} = map[string]interface{}{
 	"proctp":  "",
 	"grpnm":   "",
 	"stklist": [100]string{},
-}
-
-var Tr100021Rep map[string]interface{} = map[string]interface{}{
-	"ret-cd":  0,
-	"ret-msg": "",
 }
 
 var dealer *zmq.Socket

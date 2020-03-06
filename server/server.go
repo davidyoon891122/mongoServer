@@ -15,13 +15,6 @@ import (
 	"github.com/shamaton/msgpack"
 )
 
-var Tr100020Req map[string]interface{} = map[string]interface{}{
-	"from":     "",
-	"service":  "TR100020",
-	"htsid":    "",
-	"nextkey:": "",
-}
-
 var Tr100020Rep map[string]interface{} = map[string]interface{}{
 	"ret-cd":  0,
 	"ret-msg": "",
@@ -30,16 +23,6 @@ var Tr100020Rep map[string]interface{} = map[string]interface{}{
 		"count":      0,
 		"accounts":   [100]string{},
 	},
-}
-
-var Tr100021Req map[string]interface{} = map[string]interface{}{
-	"from":    "",
-	"service": "TR100021",
-	"stkcnt":  0,
-	"proctp":  "", //Insert(I), Delete(D)
-	"htsid":   "",
-	"grpnm":   "",
-	"stklist": [100]string{},
 }
 
 var Tr100021Rep map[string]interface{} = map[string]interface{}{
@@ -121,7 +104,7 @@ func AccountSearch(recvMap map[string]interface{}) interface{} {
 	collectionName := "account"
 
 	filter := bson.M{
-		"htsid":   recvMap["htsid"], //have to modi
+		"htsid":   recvMap["htsid"],
 		"nextkey": recvMap["nextkey"],
 		"grpnm":   recvMap["grpnm"],
 	}
@@ -174,6 +157,8 @@ func ConnectMongo() *mongo.Client {
 
 func SetReply(result interface{}) map[string]interface{} {
 	//have to redesign
+	//get format from other .go file and set data to format
+	//
 	if Service == "TR100020" {
 		if len(result.([]bson.M)) != 0 {
 			Tr100020Rep["ret-cd"] = 1
