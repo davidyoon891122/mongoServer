@@ -30,9 +30,15 @@ var Tr100021Rep map[string]interface{} = map[string]interface{}{
 	"ret-msg": "",
 }
 
+var Tr900001Rep map[string]interface{} = map[string]interface{}{
+	"ret-cd":  0,
+	"ret-msg": "",
+}
+
 var handler map[string]interface{} = map[string]interface{}{
 	"TR100020": AccountSearch,
 	"TR100021": InsertAndDelete,
+	"TR900001": SaveToken,
 }
 
 var Service string
@@ -150,15 +156,12 @@ func ConnectMongo() *mongo.Client {
 
 	err = client.Ping(context.TODO(), nil)
 
-	// logger.Println("Connected to MongoDB!")
-
 	return client
 }
 
 func SetReply(result interface{}) map[string]interface{} {
 	//have to redesign
 	//get format from other .go file and set data to format
-	//
 	if Service == "TR100020" {
 		if len(result.([]bson.M)) != 0 {
 			Tr100020Rep["ret-cd"] = 1
@@ -196,6 +199,15 @@ func SetReply(result interface{}) map[string]interface{} {
 			if result.(*mongo.DeleteResult) != nil {
 				Tr100021Rep["ret-cd"] = 1
 				Tr100021Rep["ret-msg"] = fmt.Sprintf("result : %v", result.(*mongo.DeleteResult))
+				return Tr100021Rep
+			}
+		}
+	} else if Service == "TR900001" {
+		switch result.(type) {
+		case *mongo.InsertOneResult:
+			if result.(*mongo.InsertOneResult) != nil {
+				Tr100021Rep["ret-cd"] = 1
+				Tr100021Rep["ret-msg"] = fmt.Sprintf("result : %v", result.(*mongo.InsertOneResult))
 				return Tr100021Rep
 			}
 		}
@@ -261,4 +273,29 @@ func DeleteData(recvMap map[string]interface{}) *mongo.DeleteResult {
 	defer mongoClient.Disconnect(context.TODO())
 	return result
 
+}
+
+func SaveToken(recv map[string]interface{}) interface{} {
+	mongoClient := ConnectMongo()
+	dbName := "tempDB"
+	collectionName := "token"
+
+	collection := mongoClient.Database(dbName).Collection(collectionName)
+
+	data := bson.M{
+		"token":  recv["token"],
+		"userID": recv["userID"],
+		"grpnm":  "",
+	}
+
+	result, err := collection.InsertOne(context.TODO(), data)
+
+	if err != nil {
+		fmt.Println(err)
+		panic(err)
+	}
+
+	fmt.Println(recv)
+
+	return result
 }

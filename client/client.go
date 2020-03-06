@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"regexp"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	zmq "github.com/pebbe/zmq4"
 )
 
-//add grpnm for searching
 var Tr100020Req map[string]interface{} = map[string]interface{}{
 	"from":    "",
 	"service": "TR100020",
@@ -29,6 +29,13 @@ var Tr100021Req map[string]interface{} = map[string]interface{}{
 	"proctp":  "",
 	"grpnm":   "",
 	"stklist": [100]string{},
+}
+
+var Tr900001Req map[string]interface{} = map[string]interface{}{
+	"from":    "",
+	"service": "TR900001",
+	"token":   "",
+	"userID":  "",
 }
 
 var dealer *zmq.Socket
@@ -63,8 +70,10 @@ func DisplayMenu() {
 	for {
 		var selector int
 		fmt.Println("Menu Process")
-		fmt.Println("1. Search Data (tr100020)")
-		fmt.Println("2. Insert or Delete Data (tr100021)")
+		fmt.Println("1. Search Data (tr100020).")
+		fmt.Println("2. Insert or Delete Data (tr100021).")
+		fmt.Println("3. Save Token And UserID.")
+		fmt.Println("4. Exit.")
 
 		fmt.Println("Select menu :")
 		fmt.Scanf("%d", &selector)
@@ -73,6 +82,10 @@ func DisplayMenu() {
 			SearchData()
 		} else if selector == 2 {
 			InsertDeleteData()
+		} else if selector == 3 {
+			SaveTokenInfo()
+		} else if selector == 4 {
+			os.Exit(0)
 		}
 
 		time.Sleep(3 * time.Second)
@@ -119,11 +132,9 @@ func SearchData() {
 		panic(err)
 	}
 	logger.Println("recvMap : ", recvMap)
-	//display result
 	fmt.Println("*******************************************************************************")
 	fmt.Println("ret-cd : ", recvMap["ret-cd"])
 	fmt.Println("ret-msg : ", recvMap["ret-msg"])
-	// fmt.Println("tr100020 : ", recvMap["tr100020"])
 	mapArray := recvMap["tr100020"]
 
 	switch mapArray.(type) {
@@ -238,10 +249,65 @@ func InsertDeleteData() {
 	fmt.Println(recvMap)
 	logger.Println(recvMap)
 
-	//display result
 	fmt.Println("*******************************************************************************")
 	fmt.Println("ret-cd : ", recvMap["ret-cd"])
 	fmt.Println("ret-msg : ", recvMap["ret-msg"])
 	fmt.Println("*******************************************************************************")
 
+}
+
+func SaveTokenInfo() {
+	var token string
+	var userID string
+
+	token = RandString(20)
+	fmt.Println("User ID : ")
+	fmt.Scanf("%s", &userID)
+
+	fmt.Println("User token is made by app : ", token)
+	Tr900001Req["token"] = token
+	Tr900001Req["userID"] = userID
+	Tr900001Req["from"] = userID
+
+	packed, err := msgpack.Encode(Tr900001Req)
+
+	if err != nil {
+		fmt.Println("err: ", err)
+	}
+
+	_, err = dealer.SendMessage(packed)
+
+	if err != nil {
+		fmt.Println("Err : ", err)
+	}
+
+	var recvMap map[string]interface{}
+
+	recv, err := dealer.RecvMessageBytes(0)
+
+	if err != nil {
+		fmt.Println("error : ", err)
+	}
+
+	err = msgpack.Decode(recv[0], &recvMap)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println("recvMap : ", recvMap)
+
+}
+
+func RandString(n int) string {
+	b := make([]rune, n)
+	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	now := time.Now().Second()
+	rand.Seed(int64(now))
+
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+
+	return string(b)
 }
